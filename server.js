@@ -12,17 +12,14 @@ const http = require('http');
 const app = express();
 const port = 3001;
 
-// Create HTTP server
 const server = http.createServer(app);
 
-// Configure CORS
 app.use(cors({
-  origin: '*', // Allow all origins for development
+  origin: '*',
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type']
 }));
 
-// Create WebSocket server with proper configuration
 const wss = new WebSocket.Server({ 
   server,
   path: '/ws/ssh',
@@ -30,11 +27,9 @@ const wss = new WebSocket.Server({
   clientTracking: true
 });
 
-// Configure multer with custom storage
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         const uploadDir = path.join(__dirname, 'uploads');
-        // Create uploads directory if it doesn't exist
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
@@ -49,7 +44,6 @@ const upload = multer({ storage: storage });
 
 app.use(express.json());
 
-// SSH configuration
 const sshConfig = {
     username: 'kishore',
     password: 'arastra',
@@ -57,12 +51,10 @@ const sshConfig = {
     readyTimeout: 5000
 };
 
-// Add this function near the top of the file, after the imports
 const resolvePath = (relativePath, basePath = '/opt') => {
     if (relativePath.startsWith('/')) {
         return relativePath;
     }
-    // Handle ../ patterns
     const parts = relativePath.split('/');
     const baseParts = basePath.split('/');
     
@@ -77,7 +69,6 @@ const resolvePath = (relativePath, basePath = '/opt') => {
     return baseParts.join('/');
 };
 
-// Modify the inspect endpoint
 app.get('/api/containerlab/inspect', (req, res) => {
     exec('clab inspect --all --format json', (error, stdout, stderr) => {
         if (error) {
@@ -89,14 +80,12 @@ app.get('/api/containerlab/inspect', (req, res) => {
             const topologies = [];
             const labsByFile = {};
 
-            // Group nodes by topology file
             data.containers.forEach(container => {
-                // Resolve the full path for the topology file
                 const fullLabPath = resolvePath(container.labPath);
                 
                 if (!labsByFile[fullLabPath]) {
                     labsByFile[fullLabPath] = {
-                        labPath: fullLabPath, // Use the full path
+                        labPath: fullLabPath,
                         lab_name: container.lab_name,
                         lab_owner: container.owner,
                         nodes: []
@@ -105,7 +94,7 @@ app.get('/api/containerlab/inspect', (req, res) => {
                 }
                 labsByFile[fullLabPath].nodes.push({
                     ...container,
-                    labPath: fullLabPath // Also update the path in the node data
+                    labPath: fullLabPath
                 });
             });
 
@@ -120,7 +109,6 @@ app.get('/api/containerlab/inspect', (req, res) => {
     });
 });
 
-// Updated deployment endpoint with containerlab deployment
 app.post('/api/containerlab/deploy', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
@@ -135,14 +123,12 @@ app.post('/api/containerlab/deploy', upload.single('file'), async (req, res) => 
             return res.status(400).json({ error: 'Username is required' });
         }
 
-        // Set headers for streaming
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
         const ssh = new NodeSSH();
         
-        // Connect to the remote server
         try {
             res.write('Connecting to server...\n');
             await ssh.connect({
@@ -160,27 +146,23 @@ app.post('/api/containerlab/deploy', upload.single('file'), async (req, res) => 
             return;
         }
 
-        // Create user-specific path for the topology file
         const userDir = `/home/${username}/containerlab_topologies`;
         const remoteFilePath = `${userDir}/${req.file.originalname}`;
 
         try {
-            // Create the containerlab_topologies directory if it doesn't exist
             res.write(`Ensuring containerlab_topologies directory exists at ${userDir}...\n`);
             await ssh.execCommand(`mkdir -p ${userDir}`, {
                 cwd: '/'
             });
 
-            // Upload the file to the remote server
             res.write(`Uploading file to ${remoteFilePath}...\n`);
             await ssh.putFile(req.file.path, remoteFilePath);
             res.write('File uploaded successfully\n');
 
-            // Execute containerlab deploy command with absolute path
             res.write('Executing containerlab deploy command...\n');
             const deployCommand = `clab deploy --topo ${remoteFilePath}`;
             const result = await ssh.execCommand(deployCommand, {
-                cwd: '/', // Use root directory to ensure absolute paths work correctly
+                cwd: '/',
                 onStdout: (chunk) => {
                     res.write(`stdout: ${chunk.toString()}\n`);
                 },
@@ -189,7 +171,6 @@ app.post('/api/containerlab/deploy', upload.single('file'), async (req, res) => 
                 }
             });
 
-            // Clean up the temporary file
             fs.unlinkSync(req.file.path);
             
             if (result.code === 0) {
@@ -209,7 +190,6 @@ app.post('/api/containerlab/deploy', upload.single('file'), async (req, res) => 
             }
 
         } catch (error) {
-            // Clean up the temporary file in case of error
             if (fs.existsSync(req.file.path)) {
                 fs.unlinkSync(req.file.path);
             }
@@ -223,7 +203,6 @@ app.post('/api/containerlab/deploy', upload.single('file'), async (req, res) => 
         }
 
     } catch (error) {
-        // Clean up the temporary file in case of error
         if (req.file && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
         }
@@ -235,12 +214,10 @@ app.post('/api/containerlab/deploy', upload.single('file'), async (req, res) => 
     }
 });
 
-// Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
 });
 
-// Modify the destroy endpoint
 app.post('/api/containerlab/destroy', async (req, res) => {
     try {
         const { serverIp, topoFile } = req.body;
@@ -251,14 +228,12 @@ app.post('/api/containerlab/destroy', async (req, res) => {
             });
         }
 
-        // Set headers for streaming
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
         const ssh = new NodeSSH();
         
-        // Connect to the remote server
         try {
             res.write('Connecting to server...\n');
             await ssh.connect({
@@ -273,13 +248,11 @@ app.post('/api/containerlab/destroy', async (req, res) => {
         }
 
         try {
-            // Execute containerlab destroy command
             res.write('Executing containerlab destroy command...\n');
-            // Ensure we have an absolute path
             const absoluteTopoPath = resolvePath(topoFile);
             const destroyCommand = `clab destroy --topo ${absoluteTopoPath}`;
             const result = await ssh.execCommand(destroyCommand, {
-                cwd: '/', // Use root directory to ensure absolute paths work correctly
+                cwd: '/',
                 onStdout: (chunk) => {
                     res.write(`stdout: ${chunk.toString()}\n`);
                 },
@@ -320,7 +293,6 @@ app.post('/api/containerlab/destroy', async (req, res) => {
     }
 });
 
-// Modify the reconfigure endpoint
 app.post('/api/containerlab/reconfigure', async (req, res) => {
     try {
         const { serverIp, topoFile } = req.body;
@@ -331,14 +303,12 @@ app.post('/api/containerlab/reconfigure', async (req, res) => {
             });
         }
 
-        // Set headers for streaming
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
         const ssh = new NodeSSH();
         
-        // Connect to the remote server
         try {
             res.write('Connecting to server...\n');
             await ssh.connect({
@@ -353,13 +323,11 @@ app.post('/api/containerlab/reconfigure', async (req, res) => {
         }
 
         try {
-            // Execute containerlab reconfigure command
             res.write('Executing containerlab reconfigure command...\n');
-            // Ensure we have an absolute path
             const absoluteTopoPath = resolvePath(topoFile);
             const reconfigureCommand = `clab deploy --topo ${absoluteTopoPath} --reconfigure`;
             const result = await ssh.execCommand(reconfigureCommand, {
-                cwd: '/', // Use root directory to ensure absolute paths work correctly
+                cwd: '/',
                 onStdout: (chunk) => {
                     res.write(`stdout: ${chunk.toString()}\n`);
                 },
@@ -400,13 +368,10 @@ app.post('/api/containerlab/reconfigure', async (req, res) => {
     }
 });
 
-// Add get free ports endpoint
-// Free ports endpoint
 app.get('/api/ports/free', async (req, res) => {
     try {
         const { serverIp } = req.query;
         
-        // Validate IP format
         if (!serverIp || !/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(serverIp)) {
             return res.status(400).json({ 
                 success: false,
@@ -422,7 +387,6 @@ app.get('/api/ports/free', async (req, res) => {
                 host: serverIp,
             });
 
-            // Optimized port finding script
             const findPortsScript = `
                 #!/bin/bash
                 used_ports=$(ss -tuln | awk '{print $5}' | awk -F: '{print $NF}' | sort -nu)
@@ -469,7 +433,6 @@ app.get('/api/ports/free', async (req, res) => {
     }
 });
 
-// Add these new endpoints
 app.get('/api/files/list', async (req, res) => {
   try {
     const { path, serverIp } = req.query;
@@ -484,12 +447,10 @@ app.get('/api/files/list', async (req, res) => {
       host: serverIp
     });
 
-    // List directory contents
     const { stdout } = await ssh.execCommand(`ls -la ${path}`, { cwd: '/' });
     
-    // Parse the ls output to get files and directories
     const contents = stdout.split('\n')
-      .slice(1) // Skip the total line
+      .slice(1)
       .filter(line => line.trim() && !line.endsWith('.') && !line.endsWith('..'))
       .map(line => {
         const parts = line.split(/\s+/);
@@ -524,7 +485,6 @@ app.get('/api/files/read', async (req, res) => {
       host: serverIp
     });
 
-    // Read file contents
     const { stdout } = await ssh.execCommand(`cat ${path}`, { cwd: '/' });
     
     await ssh.dispose();
@@ -535,40 +495,33 @@ app.get('/api/files/read', async (req, res) => {
   }
 });
 
-// Create uploads directory
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// WebSocket connection handling
 wss.on('connection', (ws, req) => {
   console.log('New WebSocket connection established');
   let sshClient = null;
   let sshStream = null;
 
   ws.on('message', async (message) => {
-    // If we already have an SSH stream, send the data directly
     if (sshStream) {
       sshStream.write(message.toString());
       return;
     }
 
-    // Otherwise, try to parse as JSON for initial connection
     try {
       const data = JSON.parse(message);
       console.log('Received connection request:', data);
       const { nodeName, nodeIp, username } = data;
 
-      // Create SSH client
       sshClient = new Client();
 
-      // Connect to SSH
       console.log(`Attempting SSH connection to ${nodeIp}`);
       sshClient.connect({
         host: nodeIp,
         username: 'admin',
-        // For keyboard-interactive authentication:
         tryKeyboard: true,
         readyTimeout: 10000,
         debug: console.log
@@ -583,18 +536,15 @@ wss.on('connection', (ws, req) => {
       sshClient.on('authenticationRequired', (authMethods) => {
         console.log('Authentication required, methods:', authMethods);
         if (!authMethods || authMethods.length === 0) {
-          // Try password auth as fallback
           sshClient.authPassword('admin', 'admin');
         }
       });
 
-      // Handle SSH errors
       sshClient.on('error', (err) => {
         console.error('SSH connection error:', err);
         ws.send(`\r\n\x1b[31mError: ${err.message}\x1b[0m`);
       });
 
-      // Add connection timeout handler
       const connectionTimeout = setTimeout(() => {
         if (sshClient && !sshClient._sock) {
           console.error('SSH connection timeout');
@@ -606,7 +556,6 @@ wss.on('connection', (ws, req) => {
       sshClient.on('ready', () => {
         clearTimeout(connectionTimeout);
         console.log('SSH connection ready');
-        // Create interactive shell
         sshClient.shell({ term: 'xterm-256color' }, (err, stream) => {
           if (err) {
             console.error('Error creating shell:', err);
@@ -617,13 +566,11 @@ wss.on('connection', (ws, req) => {
           console.log('Shell created successfully');
           sshStream = stream;
 
-          // Handle data from SSH stream
           stream.on('data', (data) => {
             const output = data.toString();
             ws.send(output);
           });
 
-          // Handle stream close
           stream.on('close', () => {
             console.log('SSH stream closed');
             sshClient.end();
@@ -638,7 +585,6 @@ wss.on('connection', (ws, req) => {
     }
   });
 
-  // Handle WebSocket close
   ws.on('close', () => {
     console.log('WebSocket connection closed');
     if (sshClient) {
@@ -646,7 +592,6 @@ wss.on('connection', (ws, req) => {
     }
   });
 
-  // Handle WebSocket errors
   ws.on('error', (error) => {
     console.error('WebSocket error:', error);
     if (sshClient) {
@@ -655,7 +600,6 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-// Start server
 server.listen(port, '0.0.0.0', () => {
   console.log(`Server running on port ${port}`);
   console.log(`WebSocket server is ready at ws://0.0.0.0:${port}/ws/ssh`);
