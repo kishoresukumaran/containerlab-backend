@@ -1,0 +1,20 @@
+name: diogo-diogo-test1
+topology:
+  nodes:
+    spine1:
+      kind: ceos
+      image: ceos:4.32.2F
+      mgmt-ipv4: 172.16.100.2
+    leaf1:
+      kind: ceos
+      image: ceos:4.32.2F
+      mgmt-ipv4: 172.16.100.4
+  links:
+    - endpoints:
+        - spine1:eth1
+        - leaf1:eth1
+  defaults:
+    kind: ceos
+mgmt:
+  network: clab-net
+  ipv4-subnet: 172.16.100.0/24
