@@ -1,5 +1,5 @@
 const express = require('express');
-const { exec, spawn } = require('child_process');
+const { exec } = require('child_process');
 const multer = require('multer');
 const cors = require('cors');
 const { NodeSSH } = require('node-ssh');
@@ -9,7 +9,6 @@ const WebSocket = require('ws');
 const { Client } = require('ssh2');
 const http = require('http');
 const os = require('os');
-const pty = require('node-pty');
 
 const app = express();
 const port = 3001;
@@ -19,11 +18,8 @@ const server = http.createServer(app);
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'DELETE'],
-  methods: ['GET', 'POST', 'DELETE'],
   allowedHeaders: ['Content-Type']
 }));
-
-app.use(express.json());
 
 app.use(express.json());
 
@@ -151,9 +147,6 @@ app.post('/api/containerlab/deploy', upload.single('file'), async (req, res) => 
             return;
         }
 
-        // Extract the topology name from the filename (remove .yaml extension)
-        const topologyName = req.file.originalname.replace('.yaml', '');
-        const userDir = `/home/clab_nfs_share/containerlab_topologies/${username}/${topologyName}`;
         // Extract the topology name from the filename (remove .yaml extension)
         const topologyName = req.file.originalname.replace('.yaml', '');
         const userDir = `/home/clab_nfs_share/containerlab_topologies/${username}/${topologyName}`;
@@ -453,81 +446,6 @@ app.post('/api/containerlab/save', async (req, res) => {
     }
 });
 
-app.post('/api/containerlab/save', async (req, res) => {
-    try {
-        const { serverIp, topoFile } = req.body;
-        
-        if (!serverIp || !topoFile) {
-            return res.status(400).json({ 
-                error: 'Server IP and topology file path are required' 
-            });
-        }
-
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-
-        const ssh = new NodeSSH();
-        
-        try {
-            res.write('Connecting to server...\n');
-            await ssh.connect({
-                ...sshConfig,
-                host: serverIp,
-            });
-            res.write('Connected successfully\n');
-        } catch (error) {
-            res.write(`Failed to connect to server: ${error.message}\n`);
-            res.end();
-            return;
-        }
-
-        try {
-            res.write('Executing containerlab save command...\n');
-            const absoluteTopoPath = resolvePath(topoFile);
-            const saveCommand = `clab save -t ${absoluteTopoPath}`;
-            const result = await ssh.execCommand(saveCommand, {
-                cwd: '/',
-                onStdout: (chunk) => {
-                    res.write(`stdout: ${chunk.toString()}\n`);
-                },
-                onStderr: (chunk) => {
-                    res.write(`stderr: ${chunk.toString()}\n`);
-                }
-            });
-
-            if (result.code === 0) {
-                res.write('Operation completed successfully\n');
-                res.end(JSON.stringify({
-                    success: true,
-                    message: 'Topology saved successfully'
-                }));
-            } else {
-                res.write(`Operation failed: ${result.stderr}\n`);
-                res.end(JSON.stringify({
-                    success: false,
-                    message: 'Save operation failed',
-                    error: result.stderr
-                }));
-            }
-
-        } catch (error) {
-            res.write(`Operation failed: ${error.message}\n`);
-            res.end(JSON.stringify({
-                error: `Save operation failed: ${error.message}`
-            }));
-        } finally {
-            ssh.dispose();
-        }
-
-    } catch (error) {
-        res.write(`Server error: ${error.message}\n`);
-        res.end(JSON.stringify({
-            error: `Server error: ${error.message}`
-        }));
-    }
-});
-
 app.get('/api/ports/free', async (req, res) => {
     try {
         const { serverIp } = req.query;
@@ -596,17 +514,10 @@ app.get('/api/ports/free', async (req, res) => {
 app.get('/api/files/list', async (req, res) => {
   try {
     const { path, serverIp, username } = req.query;
-    const { path, serverIp, username } = req.query;
     
     if (!serverIp) {
       return res.status(400).json({ success: false, error: 'Server IP is required' });
     }
-    
-    if (!username) {
-      return res.status(400).json({ success: false, error: 'Username is required' });
-    }
-    
-    console.log(`Listing directory for user: ${username}`);
     
     if (!username) {
       return res.status(400).json({ success: false, error: 'Username is required' });
@@ -618,15 +529,7 @@ app.get('/api/files/list', async (req, res) => {
     
     // Connect with the actual user credentials
     console.log(`Connecting as user: ${username}`);
-    
-    // Connect with the actual user credentials
-    console.log(`Connecting as user: ${username}`);
     await ssh.connect({
-      host: serverIp,
-      username: username,
-      password: 'arastra', // Assuming all users have the same password
-      tryKeyboard: true,
-      readyTimeout: 5000
       host: serverIp,
       username: username,
       password: 'arastra', // Assuming all users have the same password
@@ -661,17 +564,10 @@ app.get('/api/files/list', async (req, res) => {
 app.get('/api/files/read', async (req, res) => {
   try {
     const { path, serverIp, username } = req.query;
-    const { path, serverIp, username } = req.query;
     
     if (!serverIp) {
       return res.status(400).json({ success: false, error: 'Server IP is required' });
     }
-    
-    if (!username) {
-      return res.status(400).json({ success: false, error: 'Username is required' });
-    }
-    
-    console.log(`Reading file for user: ${username}`);
     
     if (!username) {
       return res.status(400).json({ success: false, error: 'Username is required' });
@@ -683,15 +579,7 @@ app.get('/api/files/read', async (req, res) => {
     
     // Connect with the actual user credentials
     console.log(`Connecting as user: ${username}`);
-    
-    // Connect with the actual user credentials
-    console.log(`Connecting as user: ${username}`);
     await ssh.connect({
-      host: serverIp,
-      username: username,
-      password: 'arastra', // Assuming all users have the same password
-      tryKeyboard: true,
-      readyTimeout: 5000
       host: serverIp,
       username: username,
       password: 'arastra', // Assuming all users have the same password
@@ -1037,334 +925,6 @@ app.get('/api/system/metrics', async (req, res) => {
   }
 });
 
-// Add this new endpoint for saving files
-app.post('/api/files/save', upload.single('file'), async (req, res) => {
-  const { serverIp, username, path } = req.body;
-  const file = req.file;
-  
-  if (!file) {
-    return res.status(400).json({ success: false, error: 'No file provided' });
-  }
-  
-  if (!username) {
-    return res.status(400).json({ success: false, error: 'Username is required' });
-  }
-  
-  try {
-    console.log(`Saving file for user: ${username}`);
-    
-    const ssh = new NodeSSH();
-    
-    // Connect with the actual user credentials
-    console.log(`Connecting as user: ${username}`);
-    await ssh.connect({
-      host: serverIp,
-      username: username,
-      password: 'arastra', // Assuming all users have the same password
-      tryKeyboard: true,
-      readyTimeout: 5000
-    });
-  
-    // Extract the topology name from the filename (remove .yaml extension)
-    const topologyName = file.originalname.replace('.yaml', '');
-    
-    // Create the directory structure
-    const userDir = `/home/clab_nfs_share/containerlab_topologies/${username}/${topologyName}`;
-    const targetPath = `${userDir}/${file.originalname}`;
-    
-    // Create the directory if it doesn't exist
-    await ssh.execCommand(`mkdir -p ${userDir}`);
-    
-    // Upload the file
-    await ssh.putFile(file.path, targetPath);
-  
-    // Clean up the uploaded file
-    await fs.promises.unlink(file.path);
-  
-    ssh.dispose();
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error saving file:', error);
-    // Clean up the uploaded file in case of error
-    if (file.path && fs.existsSync(file.path)) {
-      await fs.promises.unlink(file.path);
-    }
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Upload a file to a server directory
-app.post('/api/files/upload', upload.single('file'), async (req, res) => {
-  const { serverIp, targetDirectory, username } = req.body;
-  const file = req.file;
-  
-  if (!file) {
-    return res.status(400).json({ success: false, error: 'No file provided' });
-  }
-  
-  if (!serverIp || !targetDirectory) {
-    return res.status(400).json({ success: false, error: 'Server IP and target directory are required' });
-  }
-  
-  try {
-    console.log(`Uploading file for user: ${username}`);
-    
-    if (!username) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Username is required' 
-      });
-    }
-    
-    const ssh = new NodeSSH();
-    
-    // Connect with the actual user credentials
-    console.log(`Connecting as user: ${username}`);
-    await ssh.connect({
-      host: serverIp,
-      username: username,
-      password: 'arastra', // Assuming all users have the same password
-      tryKeyboard: true,
-      readyTimeout: 5000
-    });
-    
-    // Ensure target directory exists
-    console.log(`Ensuring directory exists: ${targetDirectory}`);
-    await ssh.execCommand(`mkdir -p "${targetDirectory}"`);
-    
-    // Upload the file
-    const targetPath = `${targetDirectory}/${file.originalname}`;
-    console.log(`Uploading file to: ${targetPath}`);
-    await ssh.putFile(file.path, targetPath);
-  
-    // Clean up the uploaded file
-    await fs.promises.unlink(file.path);
-    
-    console.log('File uploaded successfully');
-  
-    ssh.dispose();
-    res.json({ 
-      success: true, 
-      message: 'File uploaded successfully',
-      path: targetPath 
-    });
-  } catch (error) {
-    console.error('Error uploading file:', error);
-    // Clean up the uploaded file in case of error
-    if (file.path && fs.existsSync(file.path)) {
-      await fs.promises.unlink(file.path);
-    }
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Delete a file or directory
-app.delete('/api/files/delete', async (req, res) => {
-  const { serverIp, path, isDirectory, username } = req.body;
-  
-  if (!serverIp || !path) {
-    return res.status(400).json({ success: false, error: 'Server IP and path are required' });
-  }
-  
-  try {
-    console.log(`Deleting ${isDirectory ? 'directory' : 'file'} for user: ${username}`);
-    
-    if (!username) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Username is required' 
-      });
-    }
-    
-    const ssh = new NodeSSH();
-    
-    // Connect with the actual user credentials
-    console.log(`Connecting as user: ${username}`);
-    await ssh.connect({
-      host: serverIp,
-      username: username,
-      password: 'arastra', // Assuming all users have the same password
-      tryKeyboard: true,
-      readyTimeout: 5000
-    });
-    
-    // Delete the file or directory
-    console.log(`Attempting to delete ${isDirectory ? 'directory' : 'file'}: ${path}`);
-    const command = isDirectory ? `rm -rf "${path}"` : `rm "${path}"`;
-    const result = await ssh.execCommand(command);
-    
-    if (result.stderr) {
-      console.log('Deletion failed with error:', result.stderr);
-      throw new Error(result.stderr);
-    }
-    
-    console.log('Deletion completed successfully');
-    
-    ssh.dispose();
-    res.json({ 
-      success: true, 
-      message: `${isDirectory ? 'Directory' : 'File'} deleted successfully` 
-    });
-  } catch (error) {
-    console.error('Error deleting file/directory:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Create a new directory
-app.post('/api/files/createDirectory', async (req, res) => {
-  const { serverIp, path, directoryName, username } = req.body;
-  
-  if (!serverIp || !path || !directoryName) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Server IP, path, and directory name are required' 
-    });
-  }
-  
-  try {
-    console.log(`Creating directory for user: ${username}`);
-    
-    if (!username) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Username is required' 
-      });
-    }
-    
-    const ssh = new NodeSSH();
-    
-    // Connect with the actual user credentials
-    console.log(`Connecting as user: ${username}`);
-    await ssh.connect({
-      host: serverIp,
-      username: username,
-      password: 'arastra', // Assuming all users have the same password
-      tryKeyboard: true,
-      readyTimeout: 5000
-    });
-    
-    // Get user info to verify connection
-    const whoamiResult = await ssh.execCommand('whoami');
-    console.log('Connected as user:', whoamiResult.stdout);
-    
-    // Create the directory
-    const newDirectoryPath = `${path}/${directoryName}`;
-    console.log('Attempting to create directory:', newDirectoryPath);
-    
-    const result = await ssh.execCommand(`mkdir -p "${newDirectoryPath}"`);
-    
-    if (result.stderr) {
-      console.log('Directory creation failed with error:', result.stderr);
-      throw new Error(result.stderr);
-    }
-    
-    console.log('Directory created successfully');
-    
-    ssh.dispose();
-    res.json({ 
-      success: true, 
-      message: 'Directory created successfully',
-      path: newDirectoryPath
-    });
-  } catch (error) {
-    console.error('Error creating directory:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Create a new empty file
-app.post('/api/files/createFile', async (req, res) => {
-  const { serverIp, path, fileName, content = '', username } = req.body;
-  
-  if (!serverIp || !path || !fileName) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Server IP, path, and file name are required' 
-    });
-  }
-  
-  try {
-    console.log(`Creating file for user: ${username}`);
-    
-    if (!username) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Username is required' 
-      });
-    }
-    
-    const ssh = new NodeSSH();
-    
-    // Connect with the actual user credentials
-    console.log(`Connecting as user: ${username}`);
-    await ssh.connect({
-      host: serverIp,
-      username: username,
-      password: 'arastra', // Assuming all users have the same password
-      tryKeyboard: true,
-      readyTimeout: 5000
-    });
-    
-    // Create the file
-    const newFilePath = `${path}/${fileName}`;
-    console.log('Attempting to create file:', newFilePath);
-    
-    // Write content to file
-    const writeCommand = `cat > "${newFilePath}" << 'EOF'
-${content}
-EOF`;
-    
-    const result = await ssh.execCommand(writeCommand);
-    
-    if (result.stderr) {
-      console.log('File creation failed with error:', result.stderr);
-      throw new Error(result.stderr);
-    }
-    
-    console.log('File created successfully');
-    
-    ssh.dispose();
-    res.json({ 
-      success: true, 
-      message: 'File created successfully',
-      path: newFilePath
-    });
-  } catch (error) {
-    console.error('Error creating file:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Add this new endpoint for getting system metrics
-app.get('/api/system/metrics', async (req, res) => {
-  try {
-    // Get CPU usage
-    const cpus = os.cpus();
-    const totalCpuTime = cpus.reduce((acc, cpu) => {
-      return acc + Object.values(cpu.times).reduce((sum, time) => sum + time, 0);
-    }, 0);
-    const idleCpuTime = cpus.reduce((acc, cpu) => acc + cpu.times.idle, 0);
-    const cpuUsage = ((totalCpuTime - idleCpuTime) / totalCpuTime) * 100;
-
-    // Get memory usage
-    const totalMemory = os.totalmem();
-    const freeMemory = os.freemem();
-    const memoryUsage = ((totalMemory - freeMemory) / totalMemory) * 100;
-
-    res.json({
-      success: true,
-      metrics: {
-        cpu: Math.round(cpuUsage),
-        memory: Math.round(memoryUsage)
-      }
-    });
-  } catch (error) {
-    console.error('Error getting system metrics:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -1374,112 +934,80 @@ wss.on('connection', (ws, req) => {
   console.log('New WebSocket connection established');
   let sshClient = null;
   let sshStream = null;
-  let dockerProcess = null;
 
   ws.on('message', async (message) => {
     if (sshStream) {
       sshStream.write(message.toString());
       return;
-    } else if (dockerProcess) {
-        dockerProcess.write(message.toString());
-        return;
     }
 
     try {
       const data = JSON.parse(message);
       console.log('Received connection request:', data);
-      const { nodeName, nodeIp, username, nodeKind } = data;
+      const { nodeName, nodeIp, username } = data;
 
-      if (nodeKind === 'linux') {
-          console.log(`Attempting docker exec to ${nodeName} with pty`);
-          dockerProcess = pty.spawn('docker', ['exec', '-it', nodeName, 'sh'], {
-              name: 'xterm-256color',
-              cols: data.cols || 80,
-              rows: data.rows || 24,
-              cwd: process.env.HOME,
-              env: process.env
+      sshClient = new Client();
+
+      console.log(`Attempting SSH connection to ${nodeIp}`);
+      sshClient.connect({
+        host: nodeIp,
+        username: 'admin',
+        tryKeyboard: true,
+        readyTimeout: 10000,
+        debug: console.log
+      });
+      
+      sshClient.on('keyboard-interactive', (name, instructions, lang, prompts, finish) => {
+        console.log('Keyboard interactive authentication requested');
+        const responses = prompts.map(() => 'admin');
+        finish(responses);
+      });
+      
+      sshClient.on('authenticationRequired', (authMethods) => {
+        console.log('Authentication required, methods:', authMethods);
+        if (!authMethods || authMethods.length === 0) {
+          sshClient.authPassword('admin', 'admin');
+        }
+      });
+
+      sshClient.on('error', (err) => {
+        console.error('SSH connection error:', err);
+        ws.send(`\r\n\x1b[31mError: ${err.message}\x1b[0m`);
+      });
+
+      const connectionTimeout = setTimeout(() => {
+        if (sshClient && !sshClient._sock) {
+          console.error('SSH connection timeout');
+          ws.send('\r\n\x1b[31mError: Connection timeout\x1b[0m');
+          sshClient.end();
+        }
+      }, 10000);
+
+      sshClient.on('ready', () => {
+        clearTimeout(connectionTimeout);
+        console.log('SSH connection ready');
+        sshClient.shell({ term: 'xterm-256color' }, (err, stream) => {
+          if (err) {
+            console.error('Error creating shell:', err);
+            ws.send('\r\n\x1b[31mError: Failed to create shell\x1b[0m');
+            return;
+          }
+
+          console.log('Shell created successfully');
+          sshStream = stream;
+
+          stream.on('data', (data) => {
+            const output = data.toString();
+            ws.send(output);
           });
 
-          dockerProcess.onData((data) => {
-              ws.send(data);
+          stream.on('close', () => {
+            console.log('SSH stream closed');
+            sshClient.end();
+            sshStream = null;
           });
-
-          dockerProcess.onExit(({ exitCode, signal }) => {
-              console.log(`Docker exec pty process exited with code ${exitCode} and signal ${signal}`);
-              ws.send('\r\n\x1b[31mConnection closed\x1b[0m');
-              ws.close();
-          });
-
-          dockerProcess.on('error', (err) => {
-              console.error('Docker exec pty process error:', err);
-              ws.send(`\r\n\x1b[31mError: ${err.message}\x1b[0m`);
-              ws.close();
-          });
-
-      } else {
-          sshClient = new Client();
-
-          console.log(`Attempting SSH connection to ${nodeIp}`);
-          sshClient.connect({
-            host: nodeIp,
-            username: 'admin',
-            tryKeyboard: true,
-            readyTimeout: 10000,
-            debug: console.log
-          });
-
-          sshClient.on('keyboard-interactive', (name, instructions, lang, prompts, finish) => {
-            console.log('Keyboard interactive authentication requested');
-            const responses = prompts.map(() => 'admin');
-            finish(responses);
-          });
-
-          sshClient.on('authenticationRequired', (authMethods) => {
-            console.log('Authentication required, methods:', authMethods);
-            if (!authMethods || authMethods.length === 0) {
-              sshClient.authPassword('admin', 'admin');
-            }
-          });
-
-          sshClient.on('error', (err) => {
-            console.error('SSH connection error:', err);
-            ws.send(`\r\n\x1b[31mError: ${err.message}\x1b[0m`);
-          });
-
-          const connectionTimeout = setTimeout(() => {
-            if (sshClient && !sshClient._sock) {
-              console.error('SSH connection timeout');
-              ws.send('\r\n\x1b[31mError: Connection timeout\x1b[0m');
-              sshClient.end();
-            }
-          }, 10000);
-
-          sshClient.on('ready', () => {
-            clearTimeout(connectionTimeout);
-            console.log('SSH connection ready');
-            sshClient.shell({ term: 'xterm-256color' }, (err, stream) => {
-              if (err) {
-                console.error('Error creating shell:', err);
-                ws.send('\r\n\x1b[31mError: Failed to create shell\x1b[0m');
-                return;
-              }
-
-              console.log('Shell created successfully');
-              sshStream = stream;
-
-              stream.on('data', (data) => {
-                const output = data.toString();
-                ws.send(output);
-              });
-
-              stream.on('close', () => {
-                console.log('SSH stream closed');
-                sshClient.end();
-                sshStream = null;
-              });
-            });
-          });
-      }
+        });
+      });
 
     } catch (error) {
       console.error('Error handling WebSocket message:', error);
@@ -1491,8 +1019,6 @@ wss.on('connection', (ws, req) => {
     console.log('WebSocket connection closed');
     if (sshClient) {
       sshClient.end();
-    } else if (dockerProcess) {
-        dockerProcess.kill();
     }
   });
 
@@ -1500,8 +1026,6 @@ wss.on('connection', (ws, req) => {
     console.error('WebSocket error:', error);
     if (sshClient) {
       sshClient.end();
-    } else if (dockerProcess) {
-        dockerProcess.kill();
     }
   });
 });
