@@ -224,11 +224,12 @@ app.get('/health', (req, res) => {
 
 app.post('/api/containerlab/destroy', async (req, res) => {
     try {
-        const { serverIp, topoFile } = req.body;
+        const { serverIp, topoFile, username } = req.body;
+        console.log('Destroy request:', req.body);
         
-        if (!serverIp || !topoFile) {
+        if (!serverIp || !topoFile || !username) {
             return res.status(400).json({ 
-                error: 'Server IP and topology file path are required' 
+                error: 'Server IP, topology file path, and username are required' 
             });
         }
 
@@ -243,6 +244,10 @@ app.post('/api/containerlab/destroy', async (req, res) => {
             await ssh.connect({
                 ...sshConfig,
                 host: serverIp,
+                username: username,    
+                password: 'arastra',
+                tryKeyboard: true,
+                readyTimeout: 5000
             });
             res.write('Connected successfully\n');
         } catch (error) {
@@ -299,11 +304,12 @@ app.post('/api/containerlab/destroy', async (req, res) => {
 
 app.post('/api/containerlab/reconfigure', async (req, res) => {
     try {
-        const { serverIp, topoFile } = req.body;
+        const { serverIp, topoFile, username } = req.body;
+        console.log('Reconfigure request:', req.body);
         
-        if (!serverIp || !topoFile) {
+        if (!serverIp || !topoFile || !username) {
             return res.status(400).json({ 
-                error: 'Server IP and topology file path are required' 
+                error: 'Server IP, topology file path, and username are required' 
             });
         }
 
@@ -318,6 +324,10 @@ app.post('/api/containerlab/reconfigure', async (req, res) => {
             await ssh.connect({
                 ...sshConfig,
                 host: serverIp,
+                username: username,    
+                password: 'arastra',
+                tryKeyboard: true,
+                readyTimeout: 5000
             });
             res.write('Connected successfully\n');
         } catch (error) {
@@ -374,9 +384,10 @@ app.post('/api/containerlab/reconfigure', async (req, res) => {
 
 app.post('/api/containerlab/save', async (req, res) => {
     try {
-        const { serverIp, topoFile } = req.body;
+        const { serverIp, topoFile, username } = req.body;
+        console.log('Save lab request:', req.body);
         
-        if (!serverIp || !topoFile) {
+        if (!serverIp || !topoFile || !username) {
             return res.status(400).json({ 
                 error: 'Server IP and topology file path are required' 
             });
@@ -393,6 +404,10 @@ app.post('/api/containerlab/save', async (req, res) => {
             await ssh.connect({
                 ...sshConfig,
                 host: serverIp,
+                username: username,    
+                password: 'arastra',
+                tryKeyboard: true,
+                readyTimeout: 5000
             });
             res.write('Connected successfully\n');
         } catch (error) {
@@ -924,6 +939,94 @@ app.get('/api/system/metrics', async (req, res) => {
     console.error('Error getting system metrics:', error);
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+app.post('/api/files/copyPaste', async (req, res) => {
+    try {
+        const { sourceServerIp, sourcePath, isDirectory, destinationServerIp, destinationPath, username } = req.body;
+
+        if (!sourceServerIp || !sourcePath || !destinationServerIp || !destinationPath || !username) {
+            return res.status(400).json({ error: 'Missing required parameters' });
+        }
+
+        const ssh = new NodeSSH();
+        try {
+            // Connect to the source server (assuming it's the same as the destination server for simplicity)
+            await ssh.connect({
+                ...sshConfig,
+                host: sourceServerIp, // Connect to source server
+                username: username,    
+                password: 'arastra',
+                tryKeyboard: true,
+                readyTimeout: 5000
+            });
+        } catch (error) {
+            return res.status(500).json({ error: `Failed to connect to server: ${error.message}` });
+        }
+
+        let command;
+        // Extract the base name of the source item to append to the destination path
+        const itemName = path.basename(sourcePath);
+        const targetPath = path.posix.join(destinationPath, itemName); // Use posix.join for consistent path handling
+
+        if (isDirectory) {
+            command = `cp -r "${sourcePath}" "${targetPath}"`;
+        } else {
+            command = `cp "${sourcePath}" "${targetPath}"`;
+        }
+
+        try {
+            const result = await ssh.execCommand(command, { cwd: '/' });
+
+            if (result.code === 0) {
+                res.json({ success: true, message: 'Item copied successfully', newPath: targetPath });
+            } else {
+                res.status(500).json({ success: false, error: result.stderr || 'Failed to copy item' });
+            }
+        } catch (error) {
+            res.status(500).json({ error: `Error executing copy command: ${error.message}` });
+        } finally {
+            ssh.dispose();
+        }
+
+    } catch (error) {
+        console.error('Server error during copy/paste:', error);
+        res.status(500).json({ error: `Server error: ${error.message}` });
+    }
+});
+
+// Rename a file or directory
+app.post('/api/files/rename', async (req, res) => {
+    const { serverIp, oldPath, newPath, username } = req.body;
+
+    if (!serverIp || !oldPath || !newPath || !username) {
+        return res.status(400).json({ success: false, error: 'Server IP, old path, new path, and username are required' });
+    }
+
+    try {
+        const ssh = new NodeSSH();
+        await ssh.connect({
+            host: serverIp,
+            username: username,
+            password: 'arastra',
+            tryKeyboard: true,
+            readyTimeout: 5000
+        });
+
+        const command = `mv "${oldPath}" "${newPath}"`;
+        const result = await ssh.execCommand(command);
+
+        if (result.stderr) {
+            throw new Error(result.stderr);
+        }
+
+        ssh.dispose();
+        res.json({ success: true, message: 'Item renamed successfully' });
+
+    } catch (error) {
+        console.error('Error renaming item:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 const uploadDir = path.join(__dirname, 'uploads');
