@@ -1,3 +1,4 @@
+/* This is the backend server side script for the Containerlab Studio. It is used to handle the API calls from the frontend. */
 const express = require('express');
 const { exec, spawn } = require('child_process');
 const multer = require('multer');
@@ -302,15 +303,18 @@ app.post('/api/containerlab/destroy', async (req, res) => {
     }
 });
 
-app.post('/api/containerlab/reconfigure', async (req, res) => {
+app.post('/api/containerlab/reconfigure', upload.single('file'), async (req, res) => {
     try {
-        const { serverIp, topoFile, username } = req.body;
-        console.log('Reconfigure request:', req.body);
-        
-        if (!serverIp || !topoFile || !username) {
-            return res.status(400).json({ 
-                error: 'Server IP, topology file path, and username are required' 
-            });
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const { serverIp, username } = req.body;
+        if (!serverIp) {
+            return res.status(400).json({ error: 'Server IP is required' });
+        }
+        if (!username) {
+            return res.status(400).json({ error: 'Username is required' });
         }
 
         res.setHeader('Content-Type', 'text/event-stream');
@@ -336,10 +340,23 @@ app.post('/api/containerlab/reconfigure', async (req, res) => {
             return;
         }
 
+        // Extract the topology name from the filename (remove .yaml extension)
+        const topologyName = req.file.originalname.replace('.yaml', '');
+        const userDir = `/home/clab_nfs_share/containerlab_topologies/${username}/${topologyName}`;
+        const remoteFilePath = `${userDir}/${req.file.originalname}`;
+
         try {
+            res.write(`Ensuring containerlab_topologies directory exists at ${userDir}...\n`);
+            await ssh.execCommand(`mkdir -p ${userDir}`, {
+                cwd: '/'
+            });
+
+            res.write(`Uploading updated file to ${remoteFilePath}...\n`);
+            await ssh.putFile(req.file.path, remoteFilePath);
+            res.write('File uploaded successfully\n');
+
             res.write('Executing containerlab reconfigure command...\n');
-            const absoluteTopoPath = resolvePath(topoFile);
-            const reconfigureCommand = `clab deploy --topo ${absoluteTopoPath} --reconfigure`;
+            const reconfigureCommand = `clab deploy --topo ${remoteFilePath} --reconfigure`;
             const result = await ssh.execCommand(reconfigureCommand, {
                 cwd: '/',
                 onStdout: (chunk) => {
@@ -350,11 +367,14 @@ app.post('/api/containerlab/reconfigure', async (req, res) => {
                 }
             });
 
+            fs.unlinkSync(req.file.path);
+            
             if (result.code === 0) {
                 res.write('Operation completed successfully\n');
                 res.end(JSON.stringify({
                     success: true,
-                    message: 'Topology reconfigured successfully'
+                    message: 'Topology reconfigured successfully',
+                    filePath: remoteFilePath
                 }));
             } else {
                 res.write(`Operation failed: ${result.stderr}\n`);
@@ -366,6 +386,10 @@ app.post('/api/containerlab/reconfigure', async (req, res) => {
             }
 
         } catch (error) {
+            if (fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
+            
             res.write(`Operation failed: ${error.message}\n`);
             res.end(JSON.stringify({
                 error: `Reconfigure operation failed: ${error.message}`
@@ -375,6 +399,10 @@ app.post('/api/containerlab/reconfigure', async (req, res) => {
         }
 
     } catch (error) {
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+        
         res.write(`Server error: ${error.message}\n`);
         res.end(JSON.stringify({
             error: `Server error: ${error.message}`
@@ -628,6 +656,7 @@ app.post('/api/files/save', upload.single('file'), async (req, res) => {
   
   try {
     console.log(`Saving file for user: ${username}`);
+    console.log(`Target path: ${path}`);
     
     const ssh = new NodeSSH();
     
@@ -641,15 +670,11 @@ app.post('/api/files/save', upload.single('file'), async (req, res) => {
       readyTimeout: 5000
     });
   
-    // Extract the topology name from the filename (remove .yaml extension)
-    const topologyName = file.originalname.replace('.yaml', '');
+    // Use the path provided by the user
+    const targetPath = `${path}/${file.originalname}`;
     
-    // Create the directory structure
-    const userDir = `/home/clab_nfs_share/containerlab_topologies/${username}/${topologyName}`;
-    const targetPath = `${userDir}/${file.originalname}`;
-    
-    // Create the directory if it doesn't exist
-    await ssh.execCommand(`mkdir -p ${userDir}`);
+    // No need to create a separate directory - use the path selected by the user
+    console.log(`Saving file to: ${targetPath}`);
     
     // Upload the file
     await ssh.putFile(file.path, targetPath);
@@ -927,12 +952,25 @@ app.get('/api/system/metrics', async (req, res) => {
     const totalMemory = os.totalmem();
     const freeMemory = os.freemem();
     const memoryUsage = ((totalMemory - freeMemory) / totalMemory) * 100;
+    
+    // Format memory values for human-readable display
+    const formatMemory = (bytes) => {
+      const gigabytes = bytes / (1024 * 1024 * 1024);
+      return `${gigabytes.toFixed(2)} GB`;
+    };
+    
+    const availableMemory = {
+      free: formatMemory(freeMemory),
+      total: formatMemory(totalMemory),
+      formatted: `${formatMemory(freeMemory)} / ${formatMemory(totalMemory)}`
+    };
 
     res.json({
       success: true,
       metrics: {
         cpu: Math.round(cpuUsage),
-        memory: Math.round(memoryUsage)
+        memory: Math.round(memoryUsage),
+        availableMemory: availableMemory
       }
     });
   } catch (error) {
@@ -1029,6 +1067,120 @@ app.post('/api/files/rename', async (req, res) => {
     }
 });
 
+// Add a new API endpoint for cloning a git repository
+app.post('/api/git/clone', async (req, res) => {
+  try {
+    const { gitRepoUrl, username } = req.body;
+    
+    if (!gitRepoUrl || !username) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Git repository URL and username are required' 
+      });
+    }
+
+    // Set the server IP to 10.83.12.73 for git operations
+    const serverIp = '10.83.12.73';
+    
+    // Set up streaming response
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Transfer-Encoding', 'chunked');
+    
+    // Helper function to write logs
+    const log = (message) => {
+      const timestamp = new Date().toISOString().split('T')[1].split('.')[0]; // HH:MM:SS format
+      res.write(`[${timestamp}] ${message}\n`);
+    };
+
+    log(`Starting git clone operation for ${gitRepoUrl}...`);
+    log(`Target server: ${serverIp}`);
+    log(`Username: ${username}`);
+
+    // Get the repository name from the URL
+    const repoName = gitRepoUrl.split('/').pop().replace('.git', '');
+    const targetDir = `/home/clab_nfs_share/containerlab_topologies/${username}/${repoName}`;
+    
+    log(`Repository will be cloned to: ${targetDir}`);
+
+    const ssh = new NodeSSH();
+    
+    try {
+      // Update the SSH connection to match other parts of the file
+      log('Connecting to server...');
+      await ssh.connect({
+        ...sshConfig,
+        host: serverIp,
+        username: username,    
+        password: 'arastra',
+        tryKeyboard: true,
+        readyTimeout: 10000
+      });
+      log('Connected successfully');
+
+      // Check if directory already exists
+      log('Checking if repository directory already exists...');
+      const checkDirResult = await ssh.execCommand(`[ -d "${targetDir}" ] && echo "exists" || echo "not exists"`, { cwd: '/' });
+      
+      if (checkDirResult.stdout.trim() === 'exists') {
+        log(`Repository directory already exists. Removing existing directory...`);
+        await ssh.execCommand(`rm -rf "${targetDir}"`, { cwd: '/' });
+        log(`Existing directory removed`);
+      }
+
+      // Ensure parent directory exists
+      const parentDir = `/home/clab_nfs_share/containerlab_topologies/${username}`;
+      await ssh.execCommand(`mkdir -p "${parentDir}"`, { cwd: '/' });
+      log(`Cloning repository ${gitRepoUrl} to ${targetDir}...`);
+
+      // Clone the repository
+      const cloneResult = await ssh.execCommand(`git clone ${gitRepoUrl} "${targetDir}"`, {
+        cwd: '/',
+        onStdout: (chunk) => {
+          log(chunk.toString().trim());
+        },
+        onStderr: (chunk) => {
+          const stderr = chunk.toString().trim();
+          if (stderr && !stderr.includes('Cloning into')) {
+            log(`WARNING: ${stderr}`);
+          } else if (stderr) {
+            log(stderr);
+          }
+        }
+      });
+
+      if (cloneResult.code !== 0) {
+        throw new Error(`Git clone failed: ${cloneResult.stderr}`);
+      }
+
+      log('Repository cloned successfully');
+      log('Operation completed successfully');
+      
+      // Send the final response
+      res.end();
+      
+    } catch (error) {
+      log(`ERROR: ${error.message}`);
+      res.end();
+    } finally {
+      if (ssh) {
+        ssh.dispose();
+      }
+    }
+    
+  } catch (error) {
+    console.error('Git clone operation error:', error);
+    if (!res.headersSent) {
+      return res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    } else {
+      res.write(`\nERROR: ${error.message}\n`);
+      res.end();
+    }
+  }
+});
+
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -1076,6 +1228,33 @@ wss.on('connection', (ws, req) => {
 
           dockerProcess.on('error', (err) => {
               console.error('Docker exec pty process error:', err);
+              ws.send(`\r\n\x1b[31mError: ${err.message}\x1b[0m`);
+              ws.close();
+          });
+
+      } else if (nodeKind === 'sonic-vm') {
+          console.log(`Attempting SSH connection to sonic-vm node ${nodeName}`);
+          // For sonic-vm, we'll use the node name directly with ssh command
+          dockerProcess = pty.spawn('ssh', ['-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null', 'admin@' + nodeName], {
+              name: 'xterm-256color',
+              cols: data.cols || 80,
+              rows: data.rows || 24,
+              cwd: process.env.HOME,
+              env: process.env
+          });
+
+          dockerProcess.onData((data) => {
+              ws.send(data);
+          });
+
+          dockerProcess.onExit(({ exitCode, signal }) => {
+              console.log(`SSH to sonic-vm process exited with code ${exitCode} and signal ${signal}`);
+              ws.send('\r\n\x1b[31mConnection closed\x1b[0m');
+              ws.close();
+          });
+
+          dockerProcess.on('error', (err) => {
+              console.error('SSH to sonic-vm process error:', err);
               ws.send(`\r\n\x1b[31mError: ${err.message}\x1b[0m`);
               ws.close();
           });
