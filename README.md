@@ -50,7 +50,7 @@ docker compose version
 
 1. Clone this repository:
    ```bash
-   git clone <your-repo-url>
+   git clone https://gitlab.aristanetworks.com/kishore/containerlab-api.git
    cd containerlab-api
    ```
 
