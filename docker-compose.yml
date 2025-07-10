@@ -1,0 +1,18 @@
+version: '3'
+
+services:
+  containerlab-api:
+    build: .
+    container_name: containerlab-api
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./uploads:/app/uploads
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/clab_nfs_share:/home/clab_nfs_share
+      - /etc/hosts:/etc/hosts:ro
+    restart: unless-stopped
+    network_mode: "host"  # Using host network for Docker access and SSH connections
+    privileged: true  # Required for containerlab to work properly
+    environment:
+      - PATH=/usr/local/bin:/usr/bin:/bin:/app 
