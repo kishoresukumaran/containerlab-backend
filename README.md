@@ -11,6 +11,7 @@ Before installing and running this application, make sure you have the following
 
 - **Git**: Required to clone the repository
 - **Docker**: Required for containerizing the application (with Docker Compose plugin)
+- **Containerlab v0.68.0**: Required on the host system (the same version is installed in the container)
 - **Root access**: Required for systemd service installation and Docker operations
 - **jq**: Optional, but recommended for formatting API responses and running the test script
 - **Node.js** (v14+): Only needed if you plan to run the server outside the container
@@ -26,6 +27,12 @@ sudo apt-get install -y git
 # Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
+
+# Install Containerlab v0.68.0 (specific version)
+bash -c "$(curl -sL https://get.containerlab.dev)" -- -v 0.68.0
+
+# Verify containerlab version
+containerlab version
 
 # Install jq
 sudo apt-get install jq -y
@@ -44,6 +51,12 @@ sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 # Start and enable Docker service
 sudo systemctl start docker
 sudo systemctl enable docker
+
+# Install Containerlab v0.68.0 (specific version)
+bash -c "$(curl -sL https://get.containerlab.dev)" -- -v 0.68.0
+
+# Verify containerlab version
+containerlab version
 
 # Install jq
 sudo dnf install jq -y
@@ -414,4 +427,72 @@ If you encounter issues:
    sudo lsof -i :8080
    ```
 
-3. Test the API with the provided curl commands to verify connectivity and functionality. 
+3. Test the API with the provided curl commands to verify connectivity and functionality.
+
+## Advanced Troubleshooting
+
+### SystemD Service Issues
+
+If you see errors like `status=200/CHDIR` in the systemd service status:
+
+1. Check if the paths in the service file are correct:
+   ```bash
+   cat /etc/systemd/system/containerlab-api-docker.service
+   ```
+
+2. Edit the service file with absolute paths:
+   ```bash
+   sudo nano /etc/systemd/system/containerlab-api-docker.service
+   ```
+   
+   Ensure the paths are correct:
+   ```
+   [Service]
+   Type=simple
+   WorkingDirectory=/full/path/to/containerlab-api
+   ExecStart=/usr/bin/docker compose -f /full/path/to/containerlab-api/docker-compose.yml up
+   ExecStop=/usr/bin/docker compose -f /full/path/to/containerlab-api/docker-compose.yml down
+   ```
+
+3. Reload and restart the service:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart containerlab-api-docker.service
+   ```
+
+### Both API Servers Not Starting
+
+If both your Express API and the official containerlab API server aren't running:
+
+1. Start each separately for debugging:
+   ```bash
+   # Start Express API only
+   cd /path/to/containerlab-api
+   docker compose up -d
+   
+   # Start official containerlab API server
+   containerlab tools api-server start
+   ```
+
+2. Check if the containerlab API server is running:
+   ```bash
+   containerlab tools api-server status
+   ```
+
+3. Check container logs:
+   ```bash
+   docker logs containerlab-api
+   docker logs clab-api-server
+   ```
+
+### Port Conflicts
+
+If there are port conflicts:
+
+1. Check what process is using port 3001 or 8080:
+   ```bash
+   sudo lsof -i :3001
+   sudo lsof -i :8080
+   ```
+
+2. Edit the docker-compose.yml file to use different ports if needed. 

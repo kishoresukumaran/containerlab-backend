@@ -5,9 +5,11 @@ Requires=docker.service
 
 [Service]
 Type=simple
+# Use absolute path for working directory
 WorkingDirectory=/opt/services/containerlab-api
-ExecStart=/usr/bin/docker compose up
-ExecStop=/usr/bin/docker compose down
+# Use absolute path for docker command
+ExecStart=/usr/bin/docker compose -f /opt/services/containerlab-api/docker-compose.yml up
+ExecStop=/usr/bin/docker compose -f /opt/services/containerlab-api/docker-compose.yml down
 Restart=on-failure
 RestartSec=10
 
