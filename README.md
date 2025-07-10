@@ -440,7 +440,7 @@ If you see errors like `status=200/CHDIR` in the systemd service status:
    cat /etc/systemd/system/containerlab-api-docker.service
    ```
 
-2. Edit the service file with absolute paths:
+2. The service file is automatically generated during installation with the correct paths. If you need to modify it:
    ```bash
    sudo nano /etc/systemd/system/containerlab-api-docker.service
    ```
@@ -449,9 +449,9 @@ If you see errors like `status=200/CHDIR` in the systemd service status:
    ```
    [Service]
    Type=simple
-   WorkingDirectory=/full/path/to/containerlab-api
-   ExecStart=/usr/bin/docker compose -f /full/path/to/containerlab-api/docker-compose.yml up
-   ExecStop=/usr/bin/docker compose -f /full/path/to/containerlab-api/docker-compose.yml down
+   WorkingDirectory=/path/to/your/containerlab-api
+   ExecStart=/usr/bin/docker compose up
+   ExecStop=/usr/bin/docker compose down
    ```
 
 3. Reload and restart the service:

@@ -13,8 +13,10 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+# Get the current absolute directory path
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$CURRENT_DIR"
+echo "Restarting from directory: $CURRENT_DIR"
 
 # Check if systemd service is active, or if they are running with docker compose
 USING_SYSTEMD=0
