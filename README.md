@@ -5,6 +5,35 @@ This project provides a dual-API server solution for Containerlab:
 1. A custom Express.js backend API server for Containerlab Studio
 2. The official containerlab API server (via `containerlab tools api-server`)
 
+## Prerequisites
+
+Before installing and running this application, make sure you have the following:
+
+- **Docker**: Required for containerizing the application (with Docker Compose plugin)
+- **Root access**: Required for systemd service installation and Docker operations
+- **jq**: Optional, but recommended for formatting API responses and running the test script
+- **Node.js** (v14+): Only needed if you plan to run the server outside the container
+
+To install prerequisites on most Linux distributions:
+
+```bash
+# Install Docker with Compose plugin
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Verify Docker Compose is available
+docker compose version
+# If Docker Compose isn't available, install the plugin:
+# sudo apt-get install docker-compose-plugin  # Debian/Ubuntu
+# or
+# sudo yum install docker-compose-plugin      # CentOS/RHEL
+
+# Install jq (for API testing)
+sudo apt-get install jq -y  # Debian/Ubuntu
+# or
+sudo yum install jq -y      # CentOS/RHEL
+```
+
 ## Quick Installation
 
 1. Clone this repository:
