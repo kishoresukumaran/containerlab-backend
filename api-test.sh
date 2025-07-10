@@ -17,6 +17,12 @@ echo "----------------------------------------"
 echo "Containerlab API Test Script"
 echo "----------------------------------------"
 
+# Ensure the required directory structure exists
+echo -e "\nEnsuring required directory structure exists..."
+sudo mkdir -p $TEST_DIR
+sudo chmod -R 777 /home/clab_nfs_share
+echo "Directory structure verified."
+
 # Health check
 echo -e "\n1. Testing health check endpoint:"
 curl -s "$API_URL/health" | jq

@@ -18,6 +18,11 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$CURRENT_DIR"
 echo "Restarting from directory: $CURRENT_DIR"
 
+# Create required directory structure
+echo "Verifying required directory structure..."
+mkdir -p /home/clab_nfs_share/containerlab_topologies
+chmod -R 777 /home/clab_nfs_share
+
 # Check if systemd service is active, or if they are running with docker compose
 USING_SYSTEMD=0
 if systemctl is-active --quiet containerlab-api-docker.service; then

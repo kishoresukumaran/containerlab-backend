@@ -22,6 +22,12 @@ if ! command -v docker &> /dev/null; then
   exit 1
 fi
 
+# Create required directory structure
+echo "Creating required directory structure..."
+mkdir -p /home/clab_nfs_share/containerlab_topologies
+chmod -R 777 /home/clab_nfs_share
+echo "Directory structure created successfully"
+
 # Check if service is already running
 if systemctl is-active --quiet containerlab-api.service; then
   echo "Stopping existing containerlab-api systemd service..."

@@ -13,6 +13,7 @@ Before installing and running this application, make sure you have the following
 - **Docker**: Required for containerizing the application (with Docker Compose plugin)
 - **Containerlab v0.68.0**: Required on the host system (the same version is installed in the container)
 - **Root access**: Required for systemd service installation and Docker operations
+- **Directory structure**: The application requires `/home/clab_nfs_share/containerlab_topologies` directory to exist on the host (created automatically during installation)
 - **jq**: Optional, but recommended for formatting API responses and running the test script
 - **Node.js** (v14+): Only needed if you plan to run the server outside the container
 
@@ -428,6 +429,17 @@ If you encounter issues:
    ```
 
 3. Test the API with the provided curl commands to verify connectivity and functionality.
+
+4. Verify directory structure using the provided script:
+   ```bash
+   sudo ./verify-dirs.sh
+   ```
+   This script will:
+   - Check if the required directory structure exists (`/home/clab_nfs_share/containerlab_topologies`)
+   - Create missing directories if needed
+   - Fix permissions if directories are not writable
+   - Create a test user directory and verify write access
+   - Provide guidance on setting up directories for API testing
 
 ## Advanced Troubleshooting
 
