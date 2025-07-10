@@ -5,7 +5,6 @@ set -e
 
 echo "Containerlab API Installation Script"
 echo "==================================="
-echo "This script will set up both your Express API and the official containerlab API server"
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -13,8 +12,9 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+# Get the current absolute directory path
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo "Installing from directory: $CURRENT_DIR"
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
@@ -56,7 +56,26 @@ if [ "$startup_option" = "1" ]; then
   
 elif [ "$startup_option" = "2" ]; then
   echo "Installing systemd service..."
-  cp containerlab-api-docker.service /etc/systemd/system/
+  
+  # Create systemd service file with the correct path
+  cat > /etc/systemd/system/containerlab-api-docker.service << EOF
+[Unit]
+Description=Containerlab API Docker Container
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=$CURRENT_DIR
+ExecStart=/usr/bin/docker compose up
+ExecStop=/usr/bin/docker compose down
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
   systemctl daemon-reload
   systemctl enable containerlab-api-docker.service
   systemctl start containerlab-api-docker.service
