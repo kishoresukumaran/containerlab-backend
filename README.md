@@ -64,7 +64,6 @@ The API server exposes the following endpoints:
 - `POST /api/containerlab/reconfigure` - Reconfigure a topology
 - `POST /api/containerlab/save` - Save the current state of a topology
 - `GET /api/system/metrics` - Get system metrics
-- ... and more
 
 ## Requirements
 
