@@ -51,8 +51,14 @@ curl -s -X POST "$API_URL/api/files/createDirectory" \
   -H "Content-Type: application/json" \
   -d "{\"serverIp\": \"$SERVER_IP\", \"path\": \"$TEST_DIR\", \"directoryName\": \"api-test\", \"username\": \"$USERNAME\"}" | jq
 
+# Create directory for copy destination
+echo -e "\n7. Creating directory for copy destination:"
+curl -s -X POST "$API_URL/api/files/createDirectory" \
+  -H "Content-Type: application/json" \
+  -d "{\"serverIp\": \"$SERVER_IP\", \"path\": \"$TEST_DIR/api-test\", \"directoryName\": \"copied-files\", \"username\": \"$USERNAME\"}" | jq
+
 # Upload first file
-echo -e "\n7. Testing file upload endpoint (first file):"
+echo -e "\n8. Testing file upload endpoint (first file):"
 curl -s -X POST "$API_URL/api/files/upload" \
   -F "file=@./$TEST_FILE" \
   -F "serverIp=$SERVER_IP" \
@@ -60,7 +66,7 @@ curl -s -X POST "$API_URL/api/files/upload" \
   -F "targetDirectory=$TEST_DIR/api-test" | jq
 
 # Upload second file (for copy test)
-echo -e "\n7b. Uploading second file for copy test:"
+echo -e "\n9. Uploading second file for copy test:"
 curl -s -X POST "$API_URL/api/files/upload" \
   -F "file=@./$TEST_FILE2" \
   -F "serverIp=$SERVER_IP" \
@@ -68,51 +74,45 @@ curl -s -X POST "$API_URL/api/files/upload" \
   -F "targetDirectory=$TEST_DIR/api-test" | jq
 
 # List files in the test directory
-echo -e "\n8. Testing list files in the test directory:"
+echo -e "\n10. Testing list files in the test directory:"
 curl -s "$API_URL/api/files/list?path=$TEST_DIR/api-test&serverIp=$SERVER_IP&username=$USERNAME" | jq
 
 # Read uploaded file
-echo -e "\n9. Testing read file endpoint:"
+echo -e "\n11. Testing read file endpoint:"
 curl -s "$API_URL/api/files/read?path=$TEST_DIR/api-test/$TEST_FILE&serverIp=$SERVER_IP&username=$USERNAME" | jq
 
 # Create a file with content
-echo -e "\n10. Testing create file endpoint:"
+echo -e "\n12. Testing create file endpoint:"
 curl -s -X POST "$API_URL/api/files/createFile" \
   -H "Content-Type: application/json" \
   -d "{\"serverIp\": \"$SERVER_IP\", \"path\": \"$TEST_DIR/api-test\", \"fileName\": \"created-file.txt\", \"content\": \"This file was created by the API test script\", \"username\": \"$USERNAME\"}" | jq
 
-# Copy a file to a different name
-echo -e "\n11. Testing file copy endpoint:"
+# Copy a file to the new directory
+echo -e "\n13. Testing file copy endpoint:"
 curl -s -X POST "$API_URL/api/files/copyPaste" \
   -H "Content-Type: application/json" \
   -d "{\"sourceServerIp\": \"$SERVER_IP\", \"sourcePath\": \"$TEST_DIR/api-test/$TEST_FILE\", \"isDirectory\": false, \"destinationServerIp\": \"$SERVER_IP\", \"destinationPath\": \"$TEST_DIR/api-test/copied-files\", \"username\": \"$USERNAME\"}" | jq
 
-# Create directory for copy destination
-echo -e "\n11a. Creating directory for copy destination:"
-curl -s -X POST "$API_URL/api/files/createDirectory" \
-  -H "Content-Type: application/json" \
-  -d "{\"serverIp\": \"$SERVER_IP\", \"path\": \"$TEST_DIR/api-test\", \"directoryName\": \"copied-files\", \"username\": \"$USERNAME\"}" | jq
-
-# Copy a file to the new directory
-echo -e "\n11b. Copying file to new directory:"
+# Copy another file to the new directory
+echo -e "\n14. Copying second file to new directory:"
 curl -s -X POST "$API_URL/api/files/copyPaste" \
   -H "Content-Type: application/json" \
   -d "{\"sourceServerIp\": \"$SERVER_IP\", \"sourcePath\": \"$TEST_DIR/api-test/$TEST_FILE2\", \"isDirectory\": false, \"destinationServerIp\": \"$SERVER_IP\", \"destinationPath\": \"$TEST_DIR/api-test/copied-files\", \"username\": \"$USERNAME\"}" | jq
 
 # Rename a file
-echo -e "\n12. Testing file rename endpoint:"
+echo -e "\n15. Testing file rename endpoint:"
 curl -s -X POST "$API_URL/api/files/rename" \
   -H "Content-Type: application/json" \
   -d "{\"serverIp\": \"$SERVER_IP\", \"oldPath\": \"$TEST_DIR/api-test/copied-files/$TEST_FILE2\", \"newPath\": \"$TEST_DIR/api-test/copied-files/renamed-file.txt\", \"username\": \"$USERNAME\"}" | jq
 
 # Delete a file
-echo -e "\n13. Testing delete file endpoint:"
+echo -e "\n16. Testing delete file endpoint:"
 curl -s -X DELETE "$API_URL/api/files/delete" \
   -H "Content-Type: application/json" \
   -d "{\"serverIp\": \"$SERVER_IP\", \"path\": \"$TEST_DIR/api-test/copied-files/renamed-file.txt\", \"isDirectory\": false, \"username\": \"$USERNAME\"}" | jq
 
 # Clean up - delete test directory
-echo -e "\n14. Cleaning up - deleting test directory:"
+echo -e "\n17. Cleaning up - deleting test directory:"
 curl -s -X DELETE "$API_URL/api/files/delete" \
   -H "Content-Type: application/json" \
   -d "{\"serverIp\": \"$SERVER_IP\", \"path\": \"$TEST_DIR/api-test\", \"isDirectory\": true, \"username\": \"$USERNAME\"}" | jq
