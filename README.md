@@ -9,6 +9,7 @@ This project provides a dual-API server solution for Containerlab:
 
 Before installing and running this application, make sure you have the following:
 
+- **Git**: Required to clone the repository
 - **Docker**: Required for containerizing the application (with Docker Compose plugin)
 - **Root access**: Required for systemd service installation and Docker operations
 - **jq**: Optional, but recommended for formatting API responses and running the test script
@@ -18,6 +19,10 @@ Before installing and running this application, make sure you have the following
 
 #### For Ubuntu/Debian:
 ```bash
+# Install Git
+sudo apt-get update
+sudo apt-get install -y git
+
 # Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
@@ -28,6 +33,9 @@ sudo apt-get install jq -y
 
 #### For AlmaLinux/RHEL/CentOS:
 ```bash
+# Install Git
+sudo dnf install -y git
+
 # Install Docker
 sudo dnf -y install dnf-plugins-core
 sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
