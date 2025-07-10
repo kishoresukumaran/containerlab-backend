@@ -5,6 +5,7 @@ set -e
 
 echo "Containerlab API Installation Script"
 echo "==================================="
+echo "This script will set up both your Express API and the official containerlab API server"
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -75,4 +76,5 @@ else
 fi
 
 echo ""
-echo "The containerlab API is now running on port 3001" 
+echo "The Express API is now running on port 3001"
+echo "The containerlab API server is running on port 8080" 

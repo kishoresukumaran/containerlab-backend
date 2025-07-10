@@ -27,8 +27,13 @@ COPY . .
 # Ensure uploads directory exists
 RUN mkdir -p uploads
 
+# Make the startup script executable
+RUN chmod +x start.sh
+
 # Expose the port the app runs on
 EXPOSE 3001
+# Expose containerlab API server port
+EXPOSE 8080
 
 # Command to run the application
-CMD ["node", "server.js"] 
+CMD ["./start.sh"] 

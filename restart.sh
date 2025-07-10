@@ -5,6 +5,7 @@ set -e
 
 echo "Containerlab API Restart Script"
 echo "=============================="
+echo "This script will restart both your Express API and the containerlab API server"
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -48,4 +49,5 @@ fi
 
 echo ""
 echo "Restart completed successfully!"
-echo "The API is now running with your latest changes." 
+echo "The Express API is now running on port 3001"
+echo "The containerlab API server is running on port 8080" 
