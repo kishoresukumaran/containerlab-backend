@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install containerlab
-RUN bash -c "$(curl -sL https://get.containerlab.dev)" -- -v 0.48.6
+RUN bash -c "$(curl -sL https://get.containerlab.dev)" -- -v 0.68.0
 
 # Create app directory
 WORKDIR /app
