@@ -14,24 +14,36 @@ Before installing and running this application, make sure you have the following
 - **jq**: Optional, but recommended for formatting API responses and running the test script
 - **Node.js** (v14+): Only needed if you plan to run the server outside the container
 
-To install prerequisites on most Linux distributions:
+### Installing Prerequisites
 
+#### For Ubuntu/Debian:
 ```bash
-# Install Docker with Compose plugin
+# Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 
-# Verify Docker Compose is available
-docker compose version
-# If Docker Compose isn't available, install the plugin:
-# sudo apt-get install docker-compose-plugin  # Debian/Ubuntu
-# or
-# sudo yum install docker-compose-plugin      # CentOS/RHEL
+# Install jq
+sudo apt-get install jq -y
+```
 
-# Install jq (for API testing)
-sudo apt-get install jq -y  # Debian/Ubuntu
-# or
-sudo yum install jq -y      # CentOS/RHEL
+#### For AlmaLinux/RHEL/CentOS:
+```bash
+# Install Docker
+sudo dnf -y install dnf-plugins-core
+sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Start and enable Docker service
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Install jq
+sudo dnf install jq -y
+```
+
+#### Verify Docker Compose is available:
+```bash
+docker compose version
 ```
 
 ## Quick Installation
