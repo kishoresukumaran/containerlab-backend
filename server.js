@@ -1079,8 +1079,8 @@ app.post('/api/git/clone', async (req, res) => {
       });
     }
 
-    // Set the server IP to 10.83.12.73 for git operations
-    const serverIp = '10.83.12.73';
+    // Set the server IP to 10.83.12.237 for git operations
+    const serverIp = '10.83.12.237';
     
     // Set up streaming response
     res.setHeader('Content-Type', 'text/plain');
