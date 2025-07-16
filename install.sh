@@ -43,6 +43,30 @@ docker compose down 2>/dev/null || true
 echo "Building Docker image..."
 docker compose build
 
+# Configure firewall if firewall-cmd is available
+if command -v firewall-cmd &> /dev/null; then
+  echo "Configuring firewall rules..."
+  
+  # Check if ports are already added
+  if ! firewall-cmd --list-ports | grep -q "3001/tcp"; then
+    echo "Adding port 3001/tcp to firewall..."
+    firewall-cmd --permanent --add-port=3001/tcp
+  else
+    echo "Port 3001/tcp already configured in firewall."
+  fi
+  
+  if ! firewall-cmd --list-ports | grep -q "8080/tcp"; then
+    echo "Adding port 8080/tcp to firewall..."
+    firewall-cmd --permanent --add-port=8080/tcp
+  else
+    echo "Port 8080/tcp already configured in firewall."
+  fi
+  
+  # Reload firewall to apply changes
+  echo "Reloading firewall configuration..."
+  firewall-cmd --reload
+fi
+
 echo ""
 echo "Choose startup method:"
 echo "1) Use Docker Compose (manually start/stop with 'docker compose up/down')"
