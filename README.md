@@ -72,8 +72,8 @@ docker compose version
 
 1. Clone this repository:
    ```bash
-   git clone https://gitlab.aristanetworks.com/kishore/containerlab-api.git
-   cd containerlab-api
+   git clone https://github.com/kishoresukumaran/containerlab-backend.git
+   cd containerlab-backend
    ```
 
 2. Make the installation script executable:
@@ -86,7 +86,22 @@ docker compose version
    sudo ./install.sh
    ```
 
-The script will guide you through the setup process and offer options to run the service using Docker Compose or as a systemd service.
+The script will guide you through the setup process:
+- Prompt for your server IP address (or detect it automatically)
+- Create necessary directories
+- Build the Docker image
+- Configure firewall rules (if firewall-cmd is available)
+- Let you choose between Docker Compose and systemd service installation
+
+### Server IP Configuration
+
+During installation, you'll be prompted to enter the server IP address where the service is running. This IP is used for Git operations and other server-to-server communications. If you don't provide an IP, the script will attempt to detect it automatically.
+
+The server IP is stored in `config.js` and can be updated at any time using the provided `update-ip.sh` script:
+
+```bash
+sudo ./update-ip.sh
+```
 
 ## Restarting After Code Changes
 
@@ -126,6 +141,16 @@ This container runs two separate API services:
 
 1. **Express API (Port 3001)** - Custom API for Containerlab Studio with endpoints listed below
 2. **Official containerlab API server (Port 8080)** - Official API provided by the containerlab project
+
+## Configuration Files
+
+The application uses the following configuration files:
+
+- **config.js**: Contains server configuration settings including server IP, port numbers, and directory paths
+- **docker-compose.yml**: Docker Compose configuration for containerizing the application
+- **Dockerfile**: Instructions for building the Docker image
+
+You can modify these files to customize the application's behavior.
 
 ## Express API Documentation
 
@@ -440,6 +465,15 @@ If you encounter issues:
    - Fix permissions if directories are not writable
    - Create a test user directory and verify write access
    - Provide guidance on setting up directories for API testing
+
+5. Verify the server IP configuration:
+   ```bash
+   cat config.js
+   ```
+   If the server IP is incorrect, update it using:
+   ```bash
+   sudo ./update-ip.sh
+   ```
 
 ## Advanced Troubleshooting
 

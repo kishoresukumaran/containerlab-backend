@@ -11,6 +11,7 @@ const { Client } = require('ssh2');
 const http = require('http');
 const os = require('os');
 const pty = require('node-pty');
+const config = require('./config');
 
 const app = express();
 const port = 3001;
@@ -1079,8 +1080,8 @@ app.post('/api/git/clone', async (req, res) => {
       });
     }
 
-    // Set the server IP to 10.83.12.237 for git operations
-    const serverIp = '10.83.12.237';
+    // Get the server IP from config
+    const serverIp = config.serverIp;
     
     // Set up streaming response
     res.setHeader('Content-Type', 'text/plain');

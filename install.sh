@@ -22,6 +22,25 @@ if ! command -v docker &> /dev/null; then
   exit 1
 fi
 
+# Prompt for server IP
+read -p "Enter the server IP address where this service is running: " SERVER_IP
+if [ -z "$SERVER_IP" ]; then
+  echo "Server IP cannot be empty. Using the default local IP..."
+  # Try to get the server IP automatically
+  SERVER_IP=$(hostname -I | awk '{print $1}')
+  echo "Detected server IP: $SERVER_IP"
+  read -p "Is this correct? (y/n): " confirm
+  if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+    echo "Please run the script again and provide the correct server IP."
+    exit 1
+  fi
+fi
+
+# Update config.js with the provided server IP
+echo "Updating configuration with server IP: $SERVER_IP"
+sed -i "s/serverIp: '10\.83\.12\.237'/serverIp: '$SERVER_IP'/" "$CURRENT_DIR/config.js"
+echo "Configuration updated successfully"
+
 # Create required directory structure
 echo "Creating required directory structure..."
 mkdir -p /home/clab_nfs_share/containerlab_topologies
