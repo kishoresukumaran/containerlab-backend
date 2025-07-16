@@ -3,7 +3,7 @@ module.exports = {
   // Server IP where this service is running
   serverIp: '10.83.12.237',  // This will be updated during installation
   
-  // API port settings
+  // API port settingssudo git add
   expressApiPort: 3001,
   containerLabApiPort: 8080,
   
